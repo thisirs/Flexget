@@ -34,6 +34,9 @@ class UpcomingEpisodes(object):
         ]
     }
 
+    def __init__(self):
+        self.disabled = []
+
     def get_from(self, config):
         """Return datetime from given interval in config."""
         if config == 'epoch':
@@ -45,6 +48,21 @@ class UpcomingEpisodes(object):
                 return datetime.now() + parse_timedelta(config)
             except ValueError:
                 raise plugin.PluginError('Invalid interval format', log)
+
+    @plugin.priority(250)
+    def on_task_start(self, task, config):
+        task.disable_phase('learn')
+        seen_plugin = get_plugin_by_name('seen')
+        seen_plugin.builtin = False
+        self.disabled.append(seen_plugin.name)
+        log.debug('Disabled builtin plugin seen')
+
+    @plugin.priority(-250)
+    def on_task_exit(self, task, config):
+        seen_plugin = get_plugin_by_name('seen')
+        seen_plugin.builtin = True
+        self.disabled.remove(seen_plugin.name)
+        log.debug('Enabled builtin plugin seen')
 
     def on_task_input(self, task, config):
         task_series = task.session.query(SeriesTask).\
